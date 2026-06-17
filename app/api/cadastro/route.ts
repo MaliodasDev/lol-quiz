@@ -27,7 +27,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true, usuario: nome });
-  } catch {
+  } catch (err) {
+    console.error("[cadastro]", err);
     return NextResponse.json({ erro: "Erro no servidor." }, { status: 500 });
   }
 }
