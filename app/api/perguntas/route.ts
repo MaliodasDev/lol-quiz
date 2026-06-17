@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/mongodb";
+import pool from "@/lib/db";
 
-// Sempre busca dados frescos do banco (sem cache)
 export const dynamic = "force-dynamic";
 
-// GET /api/perguntas  →  devolve as perguntas guardadas no MongoDB
 export async function GET() {
   try {
-    const db = await getDb();
-    const perguntas = await db
-      .collection("perguntas")
-      .find({}, { projection: { _id: 0 } })
-      .toArray();
-
-    return NextResponse.json({ perguntas });
-  } catch {
+    const result = await pool.query("SELECT q, opcoes, correta FROM perguntas ORDER BY id");
+    return NextResponse.json({ perguntas: result.rows });
+  } catch (err) {
+    console.error("[perguntas]", err);
     return NextResponse.json({ erro: "Erro ao buscar perguntas." }, { status: 500 });
   }
 }

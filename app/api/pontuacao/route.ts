@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/mongodb";
+import pool from "@/lib/db";
 
-// POST /api/pontuacao  →  grava o resultado de uma partida no ranking
 export async function POST(req: Request) {
   try {
     const { usuario, acertos, total } = await req.json();
     if (!usuario)
       return NextResponse.json({ erro: "Usuário ausente." }, { status: 400 });
 
-    const db = await getDb();
-    await db.collection("ranking").insertOne({
-      usuario,
-      acertos: Number(acertos) || 0,
-      total: Number(total) || 0,
-      data: new Date(), // usado pelo índice TTL para expirar em 24h
-    });
+    await pool.query(
+      "INSERT INTO ranking (usuario, acertos, total) VALUES ($1, $2, $3)",
+      [usuario, Number(acertos) || 0, Number(total) || 0]
+    );
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    console.error("[pontuacao]", err);
     return NextResponse.json({ erro: "Erro ao salvar pontuação." }, { status: 500 });
   }
 }
