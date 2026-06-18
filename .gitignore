@@ -5,9 +5,8 @@
 /.next
 /out
 
-# variáveis de ambiente (NUNCA suba a senha do banco!)
+# variáveis de ambiente locais extras (não versionadas)
 .env
-.env.local
 
 # sistema
 .DS_Store
