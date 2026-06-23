@@ -1,24 +1,20 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import pool from "@/lib/db";
+import { getDb } from "@/lib/mongodb";
 
 export async function POST(req: Request) {
   try {
     const { usuario, senha } = await req.json();
     const nome = (usuario || "").trim();
 
-    const result = await pool.query(
-      "SELECT senha, deletar_em FROM usuarios WHERE usuario = $1",
-      [nome]
-    );
+    const db = await getDb();
+    const user = await db.collection("usuarios").findOne({ usuario: nome });
 
-    if (result.rows.length === 0)
+    if (!user)
       return NextResponse.json({ erro: "Invocador não encontrado. Crie uma conta." }, { status: 404 });
 
-    const user = result.rows[0];
-
-    if (user.deletar_em && new Date(user.deletar_em) <= new Date()) {
-      await pool.query("DELETE FROM usuarios WHERE usuario = $1", [nome]);
+    if (user.deletarEm && new Date(user.deletarEm) <= new Date()) {
+      await db.collection("usuarios").deleteOne({ usuario: nome });
       return NextResponse.json({ erro: "Conta excluída." }, { status: 404 });
     }
 

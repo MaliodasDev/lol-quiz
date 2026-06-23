@@ -7,6 +7,8 @@
 
 # variáveis de ambiente locais extras (não versionadas)
 .env
+.env.local
+.env*.local
 
 # sistema
 .DS_Store

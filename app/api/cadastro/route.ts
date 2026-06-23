@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import pool from "@/lib/db";
+import { getDb } from "@/lib/mongodb";
 
 export async function POST(req: Request) {
   try {
@@ -12,12 +12,18 @@ export async function POST(req: Request) {
     if (!senha || senha.length < 3)
       return NextResponse.json({ erro: "A senha precisa ter ao menos 3 caracteres." }, { status: 400 });
 
-    const existe = await pool.query("SELECT 1 FROM usuarios WHERE usuario = $1", [nome]);
-    if (existe.rows.length > 0)
+    const db = await getDb();
+    const existe = await db.collection("usuarios").findOne({ usuario: nome });
+    if (existe)
       return NextResponse.json({ erro: "Esse invocador já existe. Tente entrar." }, { status: 409 });
 
     const hash = await bcrypt.hash(senha, 10);
-    await pool.query("INSERT INTO usuarios (usuario, senha) VALUES ($1, $2)", [nome, hash]);
+    await db.collection("usuarios").insertOne({
+      usuario: nome,
+      senha: hash,
+      criadoEm: new Date(),
+      deletarEm: null,
+    });
 
     return NextResponse.json({ ok: true, usuario: nome });
   } catch (err) {

@@ -1,67 +1,34 @@
-// Prepara o banco Supabase/PostgreSQL: cria tabelas e insere as perguntas.
-//
-// Uso:  npm run seed
-import pg from "pg";
+import { MongoClient } from "mongodb";
 import { config } from "dotenv";
+import { readFileSync } from "fs";
 
 config({ path: ".env.local" });
 
-const connectionString =
-  process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL;
-
-if (!connectionString) {
-  console.error(
-    "✗ Defina DATABASE_URL (ou DATABASE_PUBLIC_URL) no .env.local antes de rodar o seed."
-  );
+const uri = process.env.MONGODB_URI;
+if (!uri) {
+  console.error("✗ Defina MONGODB_URI no .env.local antes de rodar o seed.");
   process.exit(1);
 }
 
-import PERGUNTAS from "../lib/perguntas.json" with { type: "json" };
+const PERGUNTAS = JSON.parse(readFileSync("./lib/perguntas.json", "utf-8"));
 
-const pool = new pg.Pool({
-  connectionString,
-  ssl: { rejectUnauthorized: false },
-});
-
+const client = new MongoClient(uri);
 try {
-  await pool.query(`
-    create table if not exists usuarios (
-      id serial primary key,
-      usuario varchar(16) unique not null,
-      senha text not null,
-      criado_em timestamptz default now(),
-      deletar_em timestamptz
-    );
-    create table if not exists perguntas (
-      id serial primary key,
-      q text not null,
-      opcoes jsonb not null,
-      correta integer not null
-    );
-    create table if not exists ranking (
-      id serial primary key,
-      usuario varchar(16) not null,
-      acertos integer not null,
-      total integer not null,
-      data timestamptz default now()
-    );
-    create index if not exists idx_ranking_data on ranking (data desc);
-    create index if not exists idx_ranking_usuario on ranking (usuario);
-  `);
+  await client.connect();
+  const db = client.db("lol-quest");
 
-  await pool.query("truncate table perguntas restart identity");
-  for (const p of PERGUNTAS) {
-    await pool.query(
-      "insert into perguntas (q, opcoes, correta) values ($1, $2, $3)",
-      [p.q, JSON.stringify(p.opcoes), p.correta]
-    );
-  }
+  await db.collection("perguntas").deleteMany({});
+  await db.collection("perguntas").insertMany(PERGUNTAS);
 
-  console.log(`✓ ${PERGUNTAS.length} perguntas inseridas na tabela "perguntas".`);
-  console.log("\nSeed concluído! O banco Supabase está pronto. 🎮");
+  await db.collection("usuarios").createIndex({ usuario: 1 }, { unique: true });
+  await db.collection("ranking").createIndex({ data: -1 });
+  await db.collection("ranking").createIndex({ usuario: 1 });
+
+  console.log(`✓ ${PERGUNTAS.length} perguntas inseridas na coleção "perguntas".`);
+  console.log("\nSeed concluído! O MongoDB Atlas está pronto. 🎮");
 } catch (e) {
   console.error("✗ Erro ao rodar o seed:", e.message);
   process.exit(1);
 } finally {
-  await pool.end();
+  await client.close();
 }

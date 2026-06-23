@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import pool from "@/lib/db";
+import { getDb } from "@/lib/mongodb";
 
 export async function POST(req: Request) {
   try {
@@ -7,10 +7,13 @@ export async function POST(req: Request) {
     if (!usuario)
       return NextResponse.json({ erro: "Usuário ausente." }, { status: 400 });
 
-    await pool.query(
-      "INSERT INTO ranking (usuario, acertos, total) VALUES ($1, $2, $3)",
-      [usuario, Number(acertos) || 0, Number(total) || 0]
-    );
+    const db = await getDb();
+    await db.collection("ranking").insertOne({
+      usuario,
+      acertos: Number(acertos) || 0,
+      total: Number(total) || 0,
+      data: new Date(),
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -1,28 +1,25 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import pool from "@/lib/db";
+import { getDb } from "@/lib/mongodb";
 
 export async function POST(req: Request) {
   try {
     const { usuario, senha } = await req.json();
     const nome = (usuario || "").trim();
 
-    const result = await pool.query(
-      "SELECT senha, deletar_em FROM usuarios WHERE usuario = $1",
-      [nome]
-    );
-    if (result.rows.length === 0)
+    const db = await getDb();
+    const user = await db.collection("usuarios").findOne({ usuario: nome });
+    if (!user)
       return NextResponse.json({ erro: "Invocador não encontrado." }, { status: 404 });
 
-    const user = result.rows[0];
     const senhaCerta = await bcrypt.compare(senha || "", user.senha);
     if (!senhaCerta)
       return NextResponse.json({ erro: "Senha incorreta." }, { status: 401 });
 
-    if (!user.deletar_em)
+    if (!user.deletarEm)
       return NextResponse.json({ erro: "Nenhuma exclusão agendada." }, { status: 400 });
 
-    await pool.query("UPDATE usuarios SET deletar_em = NULL WHERE usuario = $1", [nome]);
+    await db.collection("usuarios").updateOne({ usuario: nome }, { $set: { deletarEm: null } });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
